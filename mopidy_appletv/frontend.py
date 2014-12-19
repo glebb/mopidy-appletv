@@ -7,9 +7,15 @@ import sys
 import pybonjour
 import time
 
-from mopidy import core
+from mopidy import core, utils
+
+from threading import Thread
+
+import netifaces
 
 import logging
+
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +25,8 @@ class AppleTvFrontend(pykka.ThreadingActor, core.CoreListener):
         super(AppleTvFrontend, self).__init__()
         self.core = core
         self.socket = None
+        self.running = False
+        self.public_ip = netifaces.ifaddresses('wlan0')[netifaces.AF_INET][0]['addr']
         
         self.resolved = []
         self.queried = []
@@ -41,6 +49,9 @@ class AppleTvFrontend(pykka.ThreadingActor, core.CoreListener):
                 pass
         finally:
             browse_sdRef.close()
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.connect((self.host.ip, self.host.port))
+        
     
     # Gets the IP from selected device
     def _query_record_callback(self, sdRef, flags, interfaceIndex, errorCode, fullname, rrtype, rrclass, rdata, ttl):
@@ -110,37 +121,43 @@ class AppleTvFrontend(pykka.ThreadingActor, core.CoreListener):
             query_sdRef.close()
         
 
-    def _post_message(self, sel_vid):
-        body = "Content-Location: %s\nStart-Position: 0\n\n" % (sel_vid)
-        return "POST /play HTTP/1.1\n" \
+    def _post_message(self, action):
+        body = "Content-Location: %s\nStart-Position: 0\n\n" % ('http://'+self.public_ip+':8000/mopidy.mp3')
+        return "POST /"+action+" HTTP/1.1\n" \
                "Content-Length: %d\n"  \
                "User-Agent: MediaControl/1.0\n\n%s" % (len(body), body)
             
         
     def track_playback_started(self, tl_track):
         logger.info('playback started')
-        self._connect_to_socket(self.host.ip, self.host.port)
+        self.socket.send(self._post_message("play"))
 
     def track_playback_resumed(self, tl_track, time_position):
-        self._connect_to_socket(self.host.ip, self.host.port)
+        self.socket.send(self._post_message("rate?value=1.000000"))
         
     def track_playback_paused(self, tl_track, time_position):
-        pass
+        self.socket.send(self._post_message("rate?value=0.000000"))
 
     def track_playback_ended(self, tl_track, time_position):
         pass
+        #self.socket.send(self._post_message("stop"))
+        
+    def start_thread(self):
+        while self.running:
+            self.socket.send("\0")
+            time.sleep(5)
+        utils.process.exit_process()        
 
-    def _connect_to_socket(self, ip, port):
-        logger.info('socket connect')
-        if not self.socket:
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.connect((ip, port))
-        #while self.core.playback.state != self.core.PlaybackState.PLAYING:
-        #    time.sleep(0.2)
-        self.socket.send(self._post_message("http://192.168.1.8:8000/mopidy.mp3"))
-        #while self.playing:
-        #    time.sleep(1)
-        #    s.send("\0")
+    def on_start(self):
+        try:
+            self.running = True
+            thread = Thread(target=self.start_thread)
+            thread.start()
+        except:
+            traceback.print_exc()
+
+    def on_stop(self):
+        self.running = False
         
 
 class AirPlayDevice:
