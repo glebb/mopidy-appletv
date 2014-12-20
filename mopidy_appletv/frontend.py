@@ -121,8 +121,10 @@ class AppleTvFrontend(pykka.ThreadingActor, core.CoreListener):
             query_sdRef.close()
         
 
-    def _post_message(self, action):
-        body = "Content-Location: %s\nStart-Position: 0\n\n" % ('http://'+self.public_ip+':8000/mopidy.mp3')
+    def _post_message(self, action, uri):
+        if not uri.startswith("http"):
+            uri = 'http://'+self.public_ip+':8000/mopidy.mp3'
+        body = "Content-Location: %s\nStart-Position: 0\n\n" % (uri)
         return "POST /"+action+" HTTP/1.1\n" \
                "Content-Length: %d\n"  \
                "User-Agent: MediaControl/1.0\n\n%s" % (len(body), body)
@@ -130,7 +132,8 @@ class AppleTvFrontend(pykka.ThreadingActor, core.CoreListener):
         
     def track_playback_started(self, tl_track):
         logger.info('playback started')
-        self.socket.send(self._post_message("play"))
+        logger.info(tl_track.track.uri)
+        self.socket.send(self._post_message("play", tl_track.track.uri))
 
     def track_playback_resumed(self, tl_track, time_position):
         self.socket.send(self._post_message("rate?value=1.000000"))
