@@ -148,7 +148,7 @@ class AppleTvFrontend(pykka.ThreadingActor, core.CoreListener):
     def start_thread(self):
         while self.running:
             self.socket.send("\0")
-            time.sleep(5)
+            time.sleep(2)
         utils.process.exit_process()        
 
     def on_start(self):
