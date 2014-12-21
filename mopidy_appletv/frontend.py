@@ -41,6 +41,7 @@ class AppleTvFrontend(pykka.ThreadingActor, core.CoreListener):
         regtype  = "_airplay._tcp"
         browse_sdRef = pybonjour.DNSServiceBrowse(regtype = regtype,
                                           callBack = self._browse_callback)
+        time.sleep(3)
         try:
             try:
                 while not self.host:
@@ -146,7 +147,6 @@ class AppleTvFrontend(pykka.ThreadingActor, core.CoreListener):
         self.socket.connect((self.host.ip, self.host.port))        
 
     def start_thread(self):
-        time.sleep(3)
         while self.running:
             try:
                 self.socket.send("\0")
