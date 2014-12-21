@@ -34,6 +34,8 @@ class AppleTvFrontend(pykka.ThreadingActor, core.CoreListener):
         self.timeout  = 5
 
         self._setup_appletv()
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._connect_socket()
     
     def _setup_appletv(self):
         regtype  = "_airplay._tcp"
@@ -49,9 +51,6 @@ class AppleTvFrontend(pykka.ThreadingActor, core.CoreListener):
                 pass
         finally:
             browse_sdRef.close()
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.connect((self.host.ip, self.host.port))
-        
     
     # Gets the IP from selected device
     def _query_record_callback(self, sdRef, flags, interfaceIndex, errorCode, fullname, rrtype, rrclass, rdata, ttl):
@@ -122,8 +121,8 @@ class AppleTvFrontend(pykka.ThreadingActor, core.CoreListener):
         
 
     def _post_message(self, action, uri):
-        if not uri.startswith("http"):
-            uri = 'http://'+self.public_ip+':8000/mopidy.mp3'
+        #if not uri.startswith("mplayer:"):
+        #    uri = 'http://'+self.public_ip+':8000/mopidy.mp3'
         body = "Content-Location: %s\nStart-Position: 0\n\n" % (uri)
         return "POST /"+action+" HTTP/1.1\n" \
                "Content-Length: %d\n"  \
@@ -131,23 +130,28 @@ class AppleTvFrontend(pykka.ThreadingActor, core.CoreListener):
             
         
     def track_playback_started(self, tl_track):
-        logger.info('playback started')
-        logger.info(tl_track.track.uri)
         self.socket.send(self._post_message("play", tl_track.track.uri))
 
     def track_playback_resumed(self, tl_track, time_position):
-        self.socket.send(self._post_message("rate?value=1.000000"))
+        self.socket.send(self._post_message("rate?value=1.000000", tl_track.track.uri))
         
     def track_playback_paused(self, tl_track, time_position):
-        self.socket.send(self._post_message("rate?value=0.000000"))
+        self.socket.send(self._post_message("rate?value=0.000000", tl_track.track.uri))
 
     def track_playback_ended(self, tl_track, time_position):
         pass
         #self.socket.send(self._post_message("stop"))
-        
+    
+    def _connect_socket(self):
+        self.socket.connect((self.host.ip, self.host.port))        
+
     def start_thread(self):
         while self.running:
-            self.socket.send("\0")
+            try:
+                self.socket.send("\0")
+            except:
+                logger.info("Connection to AppleTv lost. Trying to reconnect")
+                self._connect_socket()
             time.sleep(2)
         utils.process.exit_process()        
 
@@ -155,6 +159,7 @@ class AppleTvFrontend(pykka.ThreadingActor, core.CoreListener):
         try:
             self.running = True
             thread = Thread(target=self.start_thread)
+            thread.daemon = True
             thread.start()
         except:
             traceback.print_exc()
