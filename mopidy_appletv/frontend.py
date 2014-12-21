@@ -146,6 +146,7 @@ class AppleTvFrontend(pykka.ThreadingActor, core.CoreListener):
         self.socket.connect((self.host.ip, self.host.port))        
 
     def start_thread(self):
+        time.sleep(3)
         while self.running:
             try:
                 self.socket.send("\0")
