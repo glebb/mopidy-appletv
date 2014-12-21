@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 class AppleTvFrontend(pykka.ThreadingActor, core.CoreListener):
     def __init__(self, config, core):
+        logger.info('appletv init')
         super(AppleTvFrontend, self).__init__()
         self.core = core
         self.socket = None
@@ -44,7 +45,6 @@ class AppleTvFrontend(pykka.ThreadingActor, core.CoreListener):
         try:
             try:
                 while not self.host:
-                    logger.info('host not ready')
                     ready = select.select([browse_sdRef], [], [])
                     if browse_sdRef in ready[0]:
                         pybonjour.DNSServiceProcessResult(browse_sdRef)

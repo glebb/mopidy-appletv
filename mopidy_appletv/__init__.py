@@ -4,12 +4,6 @@ from __future__ import unicode_literals
 import logging
 import os
 
-# TODO: Remove entirely if you don't register GStreamer elements below
-import pygst
-pygst.require('0.10')
-import gst
-import gobject
-
 from mopidy import config, ext
 
 
