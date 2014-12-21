@@ -41,10 +41,10 @@ class AppleTvFrontend(pykka.ThreadingActor, core.CoreListener):
         regtype  = "_airplay._tcp"
         browse_sdRef = pybonjour.DNSServiceBrowse(regtype = regtype,
                                           callBack = self._browse_callback)
-        time.sleep(3)
         try:
             try:
                 while not self.host:
+                    logger.info('host not ready')
                     ready = select.select([browse_sdRef], [], [])
                     if browse_sdRef in ready[0]:
                         pybonjour.DNSServiceProcessResult(browse_sdRef)
